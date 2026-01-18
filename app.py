@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
@@ -9,7 +9,7 @@ import threading
 load_dotenv()
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templats")
 CORS(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,11 +29,9 @@ _seed_lock = threading.Lock()
 
 @app.route("/")
 def root():
-    return jsonify({"status": "ok"})
+    return render_template("index.html")
 
-@app.route("/healthz")
-def healthz():
-    return jsonify({"status": "ok"})
+
 
 # 1️⃣ Liste des jobs
 @app.route("/api/jobs", methods=["GET"])
