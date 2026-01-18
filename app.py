@@ -3,6 +3,8 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
+import importlib
+import json
 
 load_dotenv()
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
@@ -12,6 +14,42 @@ CORS(app)
 
 client = MongoClient(MONGO_URL)
 db = client["hr_db"]
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def _load_json(rel_path: str):
+    path = rel_path if os.path.isabs(rel_path) else os.path.join(BASE_DIR, rel_path)
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _ensure_seed():
+    try:
+        jobs_count = db.jobs.estimated_document_count()
+        candidates_count = db.candidates.estimated_document_count()
+        if jobs_count == 0 or candidates_count == 0:
+            try:
+                jobs = _load_json(os.path.join("data", "jobs.json"))
+                candidates = _load_json(os.path.join("data", "candidates.json"))
+                if jobs_count == 0 and jobs:
+                    db.jobs.insert_many(jobs)
+                if candidates_count == 0 and candidates:
+                    db.candidates.insert_many(candidates)
+            except FileNotFoundError:
+                # Fallback: try external seed module if available
+                seed_module = importlib.import_module("seed")
+                if hasattr(seed_module, "seed"):
+                    # ensure seed module uses the same connection if it relies on env
+                    os.environ.setdefault("MONGO_URL", MONGO_URL)
+                    seed_module.seed()
+    except Exception:
+        pass
+
+@app.before_first_request
+def _init_data():
+    _ensure_seed()
+    
+# Run once at startup as well
+_ensure_seed()
 
 # 1️⃣ Liste des jobs
 @app.route("/api/jobs", methods=["GET"])
