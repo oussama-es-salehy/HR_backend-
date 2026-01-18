@@ -13,12 +13,7 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
 app = Flask(__name__)
 CORS(app)
 
-client = MongoClient(
-    MONGO_URL,
-    serverSelectionTimeoutMS=3000,
-    connectTimeoutMS=3000,
-    socketTimeoutMS=5000,
-)
+client = MongoClient(MONGO_URL)
 db = client["hr_db"]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,26 +46,17 @@ def _ensure_seed():
         pass
 
 _seed_lock = threading.Lock()
-_seed_started = False
-
-def _start_seed_async():
-    def _run():
-        try:
-            _ensure_seed()
-        except Exception:
-            pass
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
+_seed_done = False
 
 def _maybe_seed_once():
-    global _seed_started
-    if _seed_started:
+    global _seed_done
+    if _seed_done:
         return
     with _seed_lock:
-        if _seed_started:
+        if _seed_done:
             return
-        _seed_started = True
-        _start_seed_async()
+        _ensure_seed()
+        _seed_done = True
 
 @app.before_request
 def _init_data_once():
@@ -78,14 +64,6 @@ def _init_data_once():
 
 # Run once at startup as well (in case no requests yet)
 _maybe_seed_once()
-
-@app.route("/")
-def root():
-    return jsonify({"status": "ok"})
-
-@app.route("/healthz")
-def healthz():
-    return jsonify({"status": "ok"})
 
 # 1️⃣ Liste des jobs
 @app.route("/api/jobs", methods=["GET"])
