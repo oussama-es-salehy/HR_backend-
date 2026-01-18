@@ -13,7 +13,12 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
 app = Flask(__name__)
 CORS(app)
 
-client = MongoClient(MONGO_URL)
+client = MongoClient(
+    MONGO_URL,
+    serverSelectionTimeoutMS=3000,
+    connectTimeoutMS=3000,
+    socketTimeoutMS=5000,
+)
 db = client["hr_db"]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,17 +51,26 @@ def _ensure_seed():
         pass
 
 _seed_lock = threading.Lock()
-_seed_done = False
+_seed_started = False
+
+def _start_seed_async():
+    def _run():
+        try:
+            _ensure_seed()
+        except Exception:
+            pass
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
 
 def _maybe_seed_once():
-    global _seed_done
-    if _seed_done:
+    global _seed_started
+    if _seed_started:
         return
     with _seed_lock:
-        if _seed_done:
+        if _seed_started:
             return
-        _ensure_seed()
-        _seed_done = True
+        _seed_started = True
+        _start_seed_async()
 
 @app.before_request
 def _init_data_once():
@@ -65,22 +79,36 @@ def _init_data_once():
 # Run once at startup as well (in case no requests yet)
 _maybe_seed_once()
 
+@app.route("/")
+def root():
+    return jsonify({"status": "ok"})
+
+@app.route("/healthz")
+def healthz():
+    return jsonify({"status": "ok"})
+
 # 1️⃣ Liste des jobs
 @app.route("/api/jobs", methods=["GET"])
 def get_jobs():
-    jobs = list(db.jobs.find({}, {"_id": 0}))
-    return jsonify(jobs)
+    try:
+        jobs = list(db.jobs.find({}, {"_id": 0}))
+        return jsonify(jobs)
+    except Exception as e:
+        return jsonify({"error": "database_unavailable", "detail": str(e)}), 503
 
 # 2️⃣ Candidats par job
 @app.route("/api/jobs/<job_id>/candidates", methods=["GET"])
 def get_candidates(job_id):
-    candidates = list(
-        db.candidates.find(
-            {"applied_jobs": job_id},
-            {"_id": 0}
+    try:
+        candidates = list(
+            db.candidates.find(
+                {"applied_jobs": job_id},
+                {"_id": 0}
+            )
         )
-    )
-    return jsonify(candidates)
+        return jsonify(candidates)
+    except Exception as e:
+        return jsonify({"error": "database_unavailable", "detail": str(e)}), 503
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
