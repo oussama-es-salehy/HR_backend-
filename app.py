@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import importlib
 import json
+import threading
 
 load_dotenv()
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
@@ -44,12 +45,25 @@ def _ensure_seed():
     except Exception:
         pass
 
-@app.before_first_request
-def _init_data():
-    _ensure_seed()
-    
-# Run once at startup as well
-_ensure_seed()
+_seed_lock = threading.Lock()
+_seed_done = False
+
+def _maybe_seed_once():
+    global _seed_done
+    if _seed_done:
+        return
+    with _seed_lock:
+        if _seed_done:
+            return
+        _ensure_seed()
+        _seed_done = True
+
+@app.before_request
+def _init_data_once():
+    _maybe_seed_once()
+
+# Run once at startup as well (in case no requests yet)
+_maybe_seed_once()
 
 # 1️⃣ Liste des jobs
 @app.route("/api/jobs", methods=["GET"])
