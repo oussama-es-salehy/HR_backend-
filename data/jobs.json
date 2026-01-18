@@ -1,0 +1,13 @@
+[{
+        "job_id": "JOB001",
+        "title": "Senior DevOps Engineer",
+        "company": "TechCorp",
+        "location": "Casablanca"
+    },
+    {
+        "job_id": "JOB002",
+        "title": "Data Scientist",
+        "company": "DataLab",
+        "location": "Rabat"
+    }
+]

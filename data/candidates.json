@@ -1,0 +1,17 @@
+[{
+        "candidate_id": "CAND001",
+        "name": "Ahmed El Mansouri",
+        "current_role": "DevOps Engineer",
+        "years_experience": 6,
+        "skills": "Docker, Kubernetes, AWS",
+        "applied_jobs": ["JOB001"]
+    },
+    {
+        "candidate_id": "CAND002",
+        "name": "Sara Benali",
+        "current_role": "Data Scientist",
+        "years_experience": 3,
+        "skills": "Python, ML, SQL",
+        "applied_jobs": ["JOB002"]
+    }
+]
