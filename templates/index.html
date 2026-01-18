@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Offers Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        #candidatesSection {
+            margin-top: 20px;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .job,
+        .candidate {
+            cursor: pointer;
+            padding: 15px;
+            border: 2px solid transparent;
+            margin: 10px 0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            background: linear-gradient(to right, #f8f9fa 0%, #ffffff 100%);
+        }
+        
+        .job:hover,
+        .candidate:hover {
+            background: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .job.selected {
+            background: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .job-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .job-id,
+        .candidate-email {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .candidate-name {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-style: italic;
+        }
+        
+        .error {
+            background-color: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #c33;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+        
+        .count-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📋 Job Offers Dashboard</h1>
+
+        <div class="section">
+            <h2>Available Jobs <span class="count-badge" id="jobCount">0</span></h2>
+            <input type="text" class="search-box" id="jobSearch" placeholder="🔍 Search jobs...">
+            <div id="jobs">
+                <div class="loading">Loading jobs...</div>
+            </div>
+        </div>
+
+        <div class="section" id="candidatesSection" style="display: none;">
+            <h2>Candidates <span class="count-badge" id="candidateCount">0</span></h2>
+            <input type="text" class="search-box" id="candidateSearch" placeholder="🔍 Search candidates...">
+            <div id="candidates"></div>
+        </div>
+    </div>
+
+    <script>
+        let allJobs = [];
+        let allCandidates = [];
+        let selectedJobId = null;
+
+        async function fetchJobs() {
+            try {
+                const jobsContainer = document.getElementById('jobs');
+                jobsContainer.innerHTML = '<div class="loading">Loading jobs...</div>';
+
+                const response = await fetch('/api/jobs');
+                const jobs = await response.json();
+
+                console.log('Jobs loaded:', jobs);
+
+                allJobs = jobs;
+                displayJobs(jobs);
+            } catch (error) {
+                console.error('Error fetching jobs:', error);
+                document.getElementById('jobs').innerHTML =
+                    '<div class="error">❌ Failed to load jobs. Please try again.</div>';
+            }
+        }
+
+        function displayJobs(jobs) {
+            const jobsContainer = document.getElementById('jobs');
+            document.getElementById('jobCount').textContent = jobs.length;
+
+            if (jobs.length === 0) {
+                jobsContainer.innerHTML = '<div class="empty-state"><p>No jobs found</p></div>';
+                return;
+            }
+
+            jobsContainer.innerHTML = '';
+            jobs.forEach((job, index) => {
+                const jobDiv = document.createElement('div');
+                jobDiv.className = 'job';
+
+                // Déterminer l'ID du job - essayer différents champs possibles
+                const jobId = job.id || job._id || job.job_id || job.jobId || index;
+
+                if (selectedJobId === jobId) {
+                    jobDiv.classList.add('selected');
+                }
+
+                jobDiv.innerHTML = `
+                    <div class="job-title">${job.title || job.name || job.job_title || 'Untitled Job'}</div>
+                    <div class="job-id">ID: ${jobId}</div>
+                `;
+                jobDiv.onclick = () => {
+                    console.log('Job clicked:', job);
+                    console.log('Job ID:', jobId);
+                    fetchCandidates(jobId);
+                };
+                jobsContainer.appendChild(jobDiv);
+            });
+        }
+
+        async function fetchCandidates(jobId) {
+            selectedJobId = jobId;
+
+            // Show candidates section
+            document.getElementById('candidatesSection').style.display = 'block';
+
+            // Update selected job styling
+            document.querySelectorAll('.job').forEach(job => {
+                job.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+
+            try {
+                const candidatesContainer = document.getElementById('candidates');
+                candidatesContainer.innerHTML = '<div class="loading">Loading candidates...</div>';
+                document.getElementById('candidateSearch').value = '';
+
+                const response = await fetch(`/api/jobs/${jobId}/candidates`);
+                const candidates = await response.json();
+
+                allCandidates = candidates;
+                displayCandidates(candidates);
+            } catch (error) {
+                console.error('Error fetching candidates:', error);
+                document.getElementById('candidates').innerHTML =
+                    '<div class="error">❌ Failed to load candidates. Please try again.</div>';
+            }
+        }
+
+        function displayCandidates(candidates) {
+            const candidatesContainer = document.getElementById('candidates');
+            document.getElementById('candidateCount').textContent = candidates.length;
+
+            if (candidates.length === 0) {
+                candidatesContainer.innerHTML =
+                    '<div class="empty-state"><p>No candidates found for this job</p></div>';
+                return;
+            }
+
+            candidatesContainer.innerHTML = '';
+            candidates.forEach(candidate => {
+                const candidateDiv = document.createElement('div');
+                candidateDiv.className = 'candidate';
+                candidateDiv.innerHTML = `
+                    <div class="candidate-name">${candidate.name || 'Unknown'}</div>
+                    <div class="candidate-email">${candidate.email || 'No email'}</div>
+                `;
+                candidatesContainer.appendChild(candidateDiv);
+            });
+        }
+
+        // Search functionality
+        document.getElementById('jobSearch').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allJobs.filter((job, index) => {
+                const jobId = job.id || job._id || job.job_id || job.jobId || index;
+                return (job.title || job.name || job.job_title || '').toLowerCase().includes(searchTerm) ||
+                    jobId.toString().includes(searchTerm);
+            });
+            displayJobs(filtered);
+        });
+
+        document.getElementById('candidateSearch').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allCandidates.filter(candidate =>
+                (candidate.name || '').toLowerCase().includes(searchTerm) ||
+                (candidate.email || '').toLowerCase().includes(searchTerm)
+            );
+            displayCandidates(filtered);
+        });
+
+        // Fetch jobs on page load
+        fetchJobs();
+    </script>
+</body>
+
+</html>
