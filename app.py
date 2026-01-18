@@ -61,5 +61,5 @@ def get_candidates(job_id):
         return jsonify({"error": "data_unavailable", "detail": str(e)}), 503
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
